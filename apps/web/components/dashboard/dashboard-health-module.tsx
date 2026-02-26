@@ -216,8 +216,8 @@ export function DashboardHealthModule({
           data={recentFlow}
           loading={data.flowQuery.isLoading}
           lines={[
-            { key: 'qm_liq', label: 'Liquido Bls/d', color: '#38bdf8' },
-            { key: 'qm_gas', label: 'Gas MSCFD', color: '#22d3ee' },
+            { key: 'qm_liq', label: 'Liquido Bls/d', color: '#8b5cf6' },
+            { key: 'qm_gas', label: 'Gas MSCFD', color: '#f97316' },
           ]}
           rightActions={
             <Button variant={smoothFlow ? 'default' : 'secondary'} size="sm" onClick={onToggleSmooth}>

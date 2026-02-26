@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 
 import { fetchJson, querySignal } from '@/lib/api-client';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { shiftIsoForExternalApi } from '@/lib/time';
 import { useDashboardStore } from '@/store/dashboard-store';
 import type { SeriesResponse, SnapshotResponse, TableResponse } from '@/types/dashboard';
 
@@ -41,8 +42,10 @@ export function useDashboardData(options: DashboardDataOptions) {
 
   const rangeParams = useMemo(
     () => ({
-      from: debouncedRange.from,
-      to: debouncedRange.to,
+      // External API currently resolves timezone-aware ranges one hour behind.
+      // We compensate at query time while preserving user-visible local inputs.
+      from: shiftIsoForExternalApi(debouncedRange.from),
+      to: shiftIsoForExternalApi(debouncedRange.to),
     }),
     [debouncedRange.from, debouncedRange.to],
   );

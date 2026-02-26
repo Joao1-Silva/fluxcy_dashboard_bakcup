@@ -39,6 +39,17 @@ export function fromDateTimeLocalInput(localValue: string): string {
   return date.toISOString();
 }
 
+const EXTERNAL_API_RANGE_SHIFT_MS = 60 * 60 * 1000;
+
+export function shiftIsoForExternalApi(iso: string): string {
+  const epoch = new Date(iso).getTime();
+  if (Number.isNaN(epoch)) {
+    return iso;
+  }
+
+  return new Date(epoch + EXTERNAL_API_RANGE_SHIFT_MS).toISOString();
+}
+
 export function formatTimeLabel(value: string): string {
   return format(new Date(value), 'MM/dd HH:mm');
 }

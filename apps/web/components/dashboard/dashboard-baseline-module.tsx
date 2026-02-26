@@ -78,8 +78,8 @@ export function DashboardBaselineModule({
           data={data.flowQuery.data?.series ?? []}
           loading={data.flowQuery.isLoading}
           lines={[
-            { key: 'qm_liq', label: 'Liquido Bls/d', color: '#38bdf8' },
-            { key: 'qm_gas', label: 'Gas MSCFD', color: '#22d3ee' },
+            { key: 'qm_liq', label: 'Liquido Bls/d', color: '#8b5cf6' },
+            { key: 'qm_gas', label: 'Gas MSCFD', color: '#f97316' },
           ]}
           rightActions={
             <Button variant={smoothFlow ? 'default' : 'secondary'} size="sm" onClick={onToggleSmooth}>
@@ -119,8 +119,8 @@ export function DashboardBaselineModule({
           data={data.produccionQuery.data?.series ?? []}
           loading={data.produccionQuery.isLoading}
           lines={[
-            { key: 'liq_acum', label: 'liq_acum (Bls)', color: '#38bdf8' },
-            { key: 'gas_acum', label: 'gas_acum (MSCF)', color: '#fb7185' },
+            { key: 'liq_acum', label: 'liq_acum (Bls)', color: '#8b5cf6' },
+            { key: 'gas_acum', label: 'gas_acum (MSCF)', color: '#f97316' },
           ]}
           rightActions={<GaugeCircle className="h-4 w-4 text-slate-400" />}
         />
