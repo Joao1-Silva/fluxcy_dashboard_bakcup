@@ -1,20 +1,48 @@
 ﻿import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { APP_CONFIG } from '@/lib/app-config';
+import {
+  ASSISTANT_FOCUS_VALUES,
+  buildAssistantAnalysis,
+  type AssistantAnalyzeInput,
+  type AssistantSourceMeta,
+} from '@/lib/bff/assistant';
+import { fetchExternal } from '@/lib/bff/external-api';
+import { toRows } from '@/lib/bff/normalizers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FOCUS_VALUES = new Set(['flow', 'pressure', 'density', 'power', 'watercut']);
+const FOCUS_VALUES = new Set(ASSISTANT_FOCUS_VALUES);
 
 type AnalyzeBody = {
   from: string;
   to: string;
   timezone: string;
   pozo?: string;
-  focus?: string[];
+  focus?: (typeof ASSISTANT_FOCUS_VALUES)[number][];
 };
+
+type FetchResult = {
+  payload: unknown;
+  meta: AssistantSourceMeta;
+};
+
+type AnalyzeRunError = {
+  status: number;
+  payload: {
+    message: string;
+    sources: AssistantSourceMeta[];
+  };
+};
+
+type AnalyzeRunResult =
+  | {
+      analysis: ReturnType<typeof buildAssistantAnalysis>;
+    }
+  | {
+      error: AnalyzeRunError;
+    };
 
 function parseBody(body: unknown): AnalyzeBody | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -38,7 +66,10 @@ function parseBody(body: unknown): AnalyzeBody | null {
   }
 
   const focusArray = Array.isArray(value.focus)
-    ? value.focus.filter((item): item is string => typeof item === 'string' && FOCUS_VALUES.has(item))
+    ? value.focus.filter(
+        (item): item is (typeof ASSISTANT_FOCUS_VALUES)[number] =>
+          typeof item === 'string' && FOCUS_VALUES.has(item as (typeof ASSISTANT_FOCUS_VALUES)[number]),
+      )
     : undefined;
 
   return {
@@ -50,60 +81,119 @@ function parseBody(body: unknown): AnalyzeBody | null {
   };
 }
 
-async function parseResponse(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (text.length === 0) {
-    return null;
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
   }
+  return 'Unexpected source error';
+}
 
+async function fetchWithFallback(
+  endpoint: string,
+  params: Record<string, string | number | undefined>,
+  fallbackWithoutRange: boolean,
+): Promise<FetchResult> {
+  const start = Date.now();
   try {
-    return JSON.parse(text);
-  } catch {
-    return text;
+    const payload = await fetchExternal(endpoint, params);
+    return {
+      payload,
+      meta: {
+        endpoint,
+        ok: true,
+        fallback: false,
+        latencyMs: Date.now() - start,
+        rowCount: toRows(payload).length,
+      },
+    };
+  } catch (firstError) {
+    if (!fallbackWithoutRange) {
+      return {
+        payload: [],
+        meta: {
+          endpoint,
+          ok: false,
+          fallback: false,
+          latencyMs: Date.now() - start,
+          rowCount: 0,
+          error: toErrorMessage(firstError),
+        },
+      };
+    }
+
+    const fallbackParams: Record<string, string | number | undefined> = { ...params };
+    delete fallbackParams.from;
+    delete fallbackParams.to;
+
+    try {
+      const payload = await fetchExternal(endpoint, fallbackParams);
+      return {
+        payload,
+        meta: {
+          endpoint,
+          ok: true,
+          fallback: true,
+          latencyMs: Date.now() - start,
+          rowCount: toRows(payload).length,
+        },
+      };
+    } catch (secondError) {
+      return {
+        payload: [],
+        meta: {
+          endpoint,
+          ok: false,
+          fallback: true,
+          latencyMs: Date.now() - start,
+          rowCount: 0,
+          error: `${toErrorMessage(firstError)} | fallback: ${toErrorMessage(secondError)}`,
+        },
+      };
+    }
   }
 }
 
-async function forwardAnalyze(input: AnalyzeBody) {
-  if (!APP_CONFIG.bffUrl) {
-    return NextResponse.json(
-      {
-        message:
-          'Assistant backend is not configured. Set NEXT_PUBLIC_BFF_URL or run local BFF on http://localhost:4000.',
-      },
-      { status: 503 },
-    );
-  }
+async function runAnalyze(input: AssistantAnalyzeInput): Promise<AnalyzeRunResult> {
+  const rangeParams = {
+    from: input.from,
+    to: input.to,
+    pozo: input.pozo,
+  };
 
-  try {
-    const response = await fetch(`${APP_CONFIG.bffUrl}/assistant/analyze`, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
+  const [qm, produccion, databasefluxcy, clockmeter, clockmeterQm] = await Promise.all([
+    fetchWithFallback('/qm', rangeParams, true),
+    fetchWithFallback('/produccion', rangeParams, true),
+    fetchWithFallback('/databasefluxcy', rangeParams, true),
+    fetchWithFallback('/clockmeter', { pozo: input.pozo }, false),
+    fetchWithFallback('/clockmeter_qm', { pozo: input.pozo }, false),
+  ]);
 
-    const payload = await parseResponse(response);
-    if (!response.ok) {
-      const message =
-        payload && typeof payload === 'object' && !Array.isArray(payload) && 'message' in payload
-          ? String((payload as Record<string, unknown>).message)
-          : `Assistant error ${response.status}`;
-      return NextResponse.json(
-        {
-          message,
-          details: payload,
+  const mandatoryOk = [qm.meta.ok, produccion.meta.ok, databasefluxcy.meta.ok].some(Boolean);
+  if (!mandatoryOk) {
+    return {
+      error: {
+        status: 502,
+        payload: {
+          message: 'Unable to fetch mandatory sources (/qm, /produccion, /databasefluxcy)',
+          sources: [qm.meta, produccion.meta, databasefluxcy.meta],
         },
-        { status: response.status },
-      );
-    }
-
-    return NextResponse.json(payload);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected assistant proxy error';
-    return NextResponse.json({ message }, { status: 500 });
+      },
+    };
   }
+
+  const analysis = buildAssistantAnalysis({
+    input,
+    payloads: {
+      qm: qm.payload,
+      produccion: produccion.payload,
+      databasefluxcy: databasefluxcy.payload,
+      clockmeter: clockmeter.payload,
+      clockmeterQm: clockmeterQm.payload,
+    },
+    sources: [qm.meta, produccion.meta, databasefluxcy.meta, clockmeter.meta, clockmeterQm.meta],
+  });
+
+  return { analysis };
 }
 
 export async function POST(request: NextRequest) {
@@ -115,7 +205,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return forwardAnalyze(body);
+  const executed = await runAnalyze(body);
+  if ('error' in executed) {
+    const runError = executed.error;
+    return NextResponse.json(runError.payload, { status: runError.status });
+  }
+
+  return NextResponse.json(executed.analysis);
 }
 
 export async function GET(request: NextRequest) {
@@ -128,16 +224,25 @@ export async function GET(request: NextRequest) {
     ? focusParam
         .split(',')
         .map((value) => value.trim())
-        .filter((value) => FOCUS_VALUES.has(value))
+        .filter(
+          (value): value is (typeof ASSISTANT_FOCUS_VALUES)[number] =>
+            FOCUS_VALUES.has(value as (typeof ASSISTANT_FOCUS_VALUES)[number]),
+        )
     : undefined;
 
-  const parsed = parseBody({ from, to, timezone, pozo, focus });
-  if (!parsed) {
+  const body = parseBody({ from, to, timezone, pozo, focus });
+  if (!body) {
     return NextResponse.json(
       { message: 'Invalid query. Required: from, to, timezone (ISO range with from < to).' },
       { status: 400 },
     );
   }
 
-  return forwardAnalyze(parsed);
+  const executed = await runAnalyze(body);
+  if ('error' in executed) {
+    const runError = executed.error;
+    return NextResponse.json(runError.payload, { status: runError.status });
+  }
+
+  return NextResponse.json(executed.analysis);
 }
