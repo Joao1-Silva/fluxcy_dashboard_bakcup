@@ -7,6 +7,7 @@ import { Server as SocketServer } from 'socket.io';
 
 import { SERVER_CONFIG } from './lib/config.js';
 import { apiRouter } from './routes/api.js';
+import { assistantRouter } from './routes/assistant.js';
 import { tasksRouter } from './routes/tasks.js';
 import { initRealtime } from './socket/realtime.js';
 
@@ -56,6 +57,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api', apiAuthMiddleware, apiRouter);
 app.use('/api/tasks', apiAuthMiddleware, tasksRouter);
+app.use('/assistant', apiAuthMiddleware, assistantRouter);
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const message = error instanceof Error ? error.message : 'Unexpected server error';

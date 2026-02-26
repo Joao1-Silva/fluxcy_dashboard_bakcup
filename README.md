@@ -89,6 +89,142 @@ Modulo incluido en `/dashboard` para estimar produccion:
 - `GET /api/table/densidad-lab?from&to&limit`
 - `GET /api/tasks` (deshabilitado por defecto en codigo)
 
+## Asistente Virtual Local (Stateless, additive)
+
+Se agrego un modulo local sin persistencia, en RAM por request:
+
+- `POST /assistant/analyze`
+- `GET /assistant/analyze` (helper para Grafana/Infinity)
+- `GET /assistant/axis`
+
+No usa DB, cache persistente ni colas.
+
+### Correr local
+
+```bash
+npm run dev -w @fluxcy/server
+```
+
+Base local: `http://localhost:4000`
+
+### Ejemplo `POST /assistant/analyze`
+
+```bash
+curl -X POST "http://localhost:4000/assistant/analyze" ^
+  -H "Content-Type: application/json" ^
+  -d "{\n    \"from\":\"2026-02-25T00:00:00Z\",\n    \"to\":\"2026-02-25T06:00:00Z\",\n    \"timezone\":\"America/New_York\",\n    \"focus\":[\"flow\",\"pressure\",\"power\"]\n  }"
+```
+
+Respuesta (shape):
+
+```json
+{
+  "summary": "Rango ...",
+  "confidence": 0.83,
+  "events": [
+    {
+      "id": "event-1",
+      "type": "regime_segment",
+      "start": "2026-02-25T00:00:00.000Z",
+      "end": "2026-02-25T01:20:00.000Z",
+      "changePointAt": "2026-02-25T00:40:00.000Z",
+      "variablesChanged": [{ "metric": "qm_liq", "delta": 12.1, "score": 3.8 }],
+      "triggeredBy": [{ "algorithm": "rolling_window_median_shift", "rule": "regime_change_median_shift" }]
+    }
+  ],
+  "anomalies": [
+    {
+      "id": "anomaly-1",
+      "start": "2026-02-25T02:10:00.000Z",
+      "end": "2026-02-25T02:14:00.000Z",
+      "score": 3.4,
+      "drivers": [{ "metric": "qm_liq", "maxAbsZ": 6.1 }]
+    }
+  ],
+  "correlations": [
+    {
+      "id": "corr-1",
+      "pair": "rpm~torque",
+      "lagMinutes": 2,
+      "strength": 0.78
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Verificar calidad de senal antes de decisiones operativas",
+      "evidence": [{ "type": "data_quality", "id": "dq-qm_liq-gap-1" }]
+    }
+  ],
+  "dataQuality": {
+    "confidencePerSeries": [],
+    "issues": []
+  },
+  "features": {
+    "metrics": [],
+    "ratios": []
+  },
+  "meta": {
+    "interpolationApplied": false,
+    "algorithms": [
+      "expected_step_gap_detector",
+      "rolling_mad_detector",
+      "median_mad_outlier",
+      "rolling_window_median_shift",
+      "combined_robust_zscore",
+      "pearson_lag_scan"
+    ]
+  }
+}
+```
+
+### Ejemplo `GET /assistant/axis`
+
+```bash
+curl "http://localhost:4000/assistant/axis?from=2026-02-25T00:00:00Z&to=2026-02-25T06:00:00Z&timezone=America/New_York&mode=auto"
+```
+
+Respuesta:
+
+```json
+{
+  "maxObserved": 93.4,
+  "maxAxis": 128,
+  "tickStep": 32,
+  "algorithm": "pow2"
+}
+```
+
+## Grafana JSON (copy/paste reproducible)
+
+Script additive para parchear un dashboard existente y generar uno nuevo `FLUXCY Assistant`:
+
+```bash
+node deploy/grafana/patch-dashboard-assistant.mjs ^
+  --in C:\\ruta\\tu-dashboard.json ^
+  --out-patched C:\\ruta\\tu-dashboard.flow-axis.json ^
+  --out-assistant C:\\ruta\\tu-dashboard.assistant.json ^
+  --infinity-uid TU_INFINITY_UID ^
+  --assistant-base http://localhost:4000 ^
+  --timezone America/New_York
+```
+
+Snippet JSON directo (copy/paste): `deploy/grafana/assistant-json-snippets.json`
+
+El script hace exactamente:
+
+1. Panel `id=1` (Flow Rate):
+- `fieldConfig.defaults.min = 0`
+- elimina `fieldConfig.defaults.max` (auto max)
+- `fieldConfig.defaults.custom.axisSoftMin = 0`
+- no toca `targets` ni queries.
+
+2. Crea dashboard nuevo `FLUXCY Assistant`:
+- clona el dashboard base (sin borrar paneles existentes).
+- agrega al final:
+  - `Assistant Findings (Recommendations)` (tabla sobre `/assistant/analyze`)
+  - `Assistant Timeline (Regimes & Anomalies)` (state timeline sobre `/assistant/analyze`)
+
 ## Tema iOS26 y modulo Health (additive)
 
 Se agrego soporte de tema visual seleccionable por usuario y un segundo modulo de dashboard, sin alterar endpoints ni queries existentes.

@@ -12,7 +12,8 @@
     "start": "concurrently -n WEB,SERVER -c cyan,green \"npm run start -w @fluxcy/web\" \"npm run start -w @fluxcy/server\"",
     "lint": "npm run lint -w @fluxcy/server && npm run lint -w @fluxcy/web",
     "test": "npm run test -w @fluxcy/server && npm run test -w @fluxcy/web",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "grafana:patch": "node deploy/grafana/patch-dashboard-assistant.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

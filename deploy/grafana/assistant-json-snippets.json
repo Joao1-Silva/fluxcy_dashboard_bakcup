@@ -1,0 +1,86 @@
+﻿{
+  "flowRatePanelId1Patch": {
+    "fieldConfig": {
+      "defaults": {
+        "min": 0,
+        "max": null,
+        "custom": {
+          "axisSoftMin": 0,
+          "axisPlacement": "auto",
+          "scaleDistribution": {
+            "type": "linear"
+          }
+        }
+      }
+    },
+    "notes": [
+      "Apply only to panel id=1.",
+      "Do not modify targets/queries.",
+      "If max exists as fixed value, remove it to let Grafana auto-scale with 1-2-5 nice ticks."
+    ]
+  },
+  "assistantPanels": [
+    {
+      "id": 9001,
+      "type": "table",
+      "title": "Assistant Findings (Recommendations)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "__INFINITY_DS_UID__"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "__INFINITY_DS_UID__"
+          },
+          "source": "url",
+          "type": "json",
+          "format": "table",
+          "parser": "backend",
+          "url": "http://localhost:4000/assistant/analyze?from=%24%7B__from%3Adate%3Aiso%7D&to=%24%7B__to%3Adate%3Aiso%7D&timezone=America%2FNew_York",
+          "uql": "parse-json | scope \"recommendations\" | project id, title, checklist=tostring(checklist), evidence=tostring(evidence)"
+        }
+      ]
+    },
+    {
+      "id": 9002,
+      "type": "state-timeline",
+      "title": "Assistant Timeline (Regimes & Anomalies)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "__INFINITY_DS_UID__"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "__INFINITY_DS_UID__"
+          },
+          "source": "url",
+          "type": "json",
+          "format": "table",
+          "parser": "backend",
+          "url": "http://localhost:4000/assistant/analyze?from=%24%7B__from%3Adate%3Aiso%7D&to=%24%7B__to%3Adate%3Aiso%7D&timezone=America%2FNew_York",
+          "uql": "parse-json | scope \"events\" | project start=todatetime(start), end=todatetime(end), segment=id, state=iif(array_length(variablesChanged)>0,\"Cambio de regimen\",\"Estable\"), score=todouble(score)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "__INFINITY_DS_UID__"
+          },
+          "source": "url",
+          "type": "json",
+          "format": "table",
+          "parser": "backend",
+          "hide": true,
+          "url": "http://localhost:4000/assistant/analyze?from=%24%7B__from%3Adate%3Aiso%7D&to=%24%7B__to%3Adate%3Aiso%7D&timezone=America%2FNew_York",
+          "uql": "parse-json | scope \"anomalies\" | project start=todatetime(start), end=todatetime(end), segment=id, state=\"Anomalia\", score=todouble(score)"
+        }
+      ]
+    }
+  ]
+}
