@@ -149,4 +149,6 @@ export function useDashboardData(options: DashboardDataOptions) {
   };
 }
 
+export type DashboardDataHookResult = ReturnType<typeof useDashboardData>;
+
 

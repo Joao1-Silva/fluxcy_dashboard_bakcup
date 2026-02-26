@@ -1,7 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarRange, Pause, Play, Radio, SlidersHorizontal, SquareCheck, LogOut } from 'lucide-react';
+import {
+  CalendarRange,
+  HeartPulse,
+  LayoutDashboard,
+  LogOut,
+  Palette,
+  Pause,
+  Play,
+  Radio,
+  SlidersHorizontal,
+  SquareCheck,
+} from 'lucide-react';
 
 import { StatusChip } from '@/components/layout/status-chip';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +22,6 @@ import { Label } from '@/components/ui/label';
 import { REFRESH_OPTIONS, RANGE_PRESETS, fromDateTimeLocalInput, toDateTimeLocalInput } from '@/lib/time';
 import { useDashboardStore } from '@/store/dashboard-store';
 import type { AuthRole } from '@/types/auth';
-import type { DataMode } from '@/types/dashboard';
 
 type DashboardHeaderProps = {
   onOpenTasks: () => void;
@@ -19,16 +29,17 @@ type DashboardHeaderProps = {
   displayName: string;
   role: AuthRole;
   onLogout: () => void;
+  moduleVariant?: 'default' | 'health';
 };
 
-function ModeButton({
+function ToggleButton({
   current,
   value,
   onClick,
   label,
 }: {
-  current: DataMode;
-  value: DataMode;
+  current: string;
+  value: string;
   onClick: () => void;
   label: string;
 }) {
@@ -51,8 +62,10 @@ export function DashboardHeader({
   displayName,
   role,
   onLogout,
+  moduleVariant = 'default',
 }: DashboardHeaderProps) {
   const mode = useDashboardStore((state) => state.mode);
+  const themeMode = useDashboardStore((state) => state.themeMode);
   const socketStatus = useDashboardStore((state) => state.socketStatus);
   const fallbackPolling = useDashboardStore((state) => state.fallbackPolling);
   const paused = useDashboardStore((state) => state.paused);
@@ -60,6 +73,7 @@ export function DashboardHeader({
   const draftRange = useDashboardStore((state) => state.draftRange);
   const presetKey = useDashboardStore((state) => state.presetKey);
   const setMode = useDashboardStore((state) => state.setMode);
+  const setThemeMode = useDashboardStore((state) => state.setThemeMode);
   const setPaused = useDashboardStore((state) => state.setPaused);
   const setRefreshMs = useDashboardStore((state) => state.setRefreshMs);
   const setPresetKey = useDashboardStore((state) => state.setPresetKey);
@@ -85,13 +99,27 @@ export function DashboardHeader({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-wide text-slate-100 lg:text-xl">FLUXCY DEV V1</h1>
-          <p className="text-xs text-slate-400">Dashboard BFF / Socket.IO | Timezone: {timezone}</p>
+          <p className="text-xs text-slate-400">
+            Dashboard BFF / Socket.IO | Timezone: {timezone} | Theme: {themeMode}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="muted" className="capitalize">
             {displayName} ({role})
           </Badge>
           <StatusChip status={status} />
+          <Button variant={moduleVariant === 'default' ? 'default' : 'secondary'} size="sm" asChild>
+            <Link href="/dashboard">
+              <LayoutDashboard className="mr-1.5 h-4 w-4" />
+              Default
+            </Link>
+          </Button>
+          <Button variant={moduleVariant === 'health' ? 'default' : 'secondary'} size="sm" asChild>
+            <Link href="/dashboard/health">
+              <HeartPulse className="mr-1.5 h-4 w-4" />
+              Health
+            </Link>
+          </Button>
           {canManageTasks ? (
             <>
               <Button variant="secondary" size="sm" onClick={onOpenTasks}>
@@ -110,20 +138,20 @@ export function DashboardHeader({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <div className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-950/55 p-3 xl:col-span-1">
           <Label className="flex items-center gap-1.5 text-slate-300">
             <Radio className="h-3.5 w-3.5" />
             Data Mode
           </Label>
           <div className="flex gap-2">
-            <ModeButton
+            <ToggleButton
               current={mode}
               value="realtime"
               label="Realtime"
               onClick={() => setMode('realtime')}
             />
-            <ModeButton current={mode} value="api" label="API" onClick={() => setMode('api')} />
+            <ToggleButton current={mode} value="api" label="API" onClick={() => setMode('api')} />
           </div>
         </div>
 
@@ -152,6 +180,27 @@ export function DashboardHeader({
             >
               {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-950/55 p-3 xl:col-span-1">
+          <Label className="flex items-center gap-1.5 text-slate-300">
+            <Palette className="h-3.5 w-3.5" />
+            Theme
+          </Label>
+          <div className="flex gap-2">
+            <ToggleButton
+              current={themeMode}
+              value="Default"
+              label="Default"
+              onClick={() => setThemeMode('Default')}
+            />
+            <ToggleButton
+              current={themeMode}
+              value="iOS26"
+              label="iOS26"
+              onClick={() => setThemeMode('iOS26')}
+            />
           </div>
         </div>
 

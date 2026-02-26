@@ -1,0 +1,134 @@
+.theme-ios26 {
+  --ios-bg-a: rgba(255, 255, 255, 0.58);
+  --ios-bg-b: rgba(20, 20, 24, 0.54);
+  --ios-border: rgba(255, 255, 255, 0.36);
+  --ios-shadow: 0 18px 50px rgba(10, 19, 37, 0.2);
+  --ios-text-main: #edf3ff;
+  --ios-text-muted: #c5d0e5;
+  --ios-highlight: #8bc6ff;
+  font-family:
+    'SF Pro Display',
+    'SF Pro Text',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  background-color: #0e1f30;
+  background-image:
+    radial-gradient(circle at 8% 12%, rgba(146, 191, 255, 0.32), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(122, 160, 238, 0.18), transparent 30%),
+    radial-gradient(circle at 70% 86%, rgba(190, 211, 255, 0.15), transparent 36%),
+    linear-gradient(146deg, #163654 0%, #162b42 42%, #142235 100%);
+}
+
+.theme-ios26::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.25;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.18) 0.4px, transparent 0.4px),
+    radial-gradient(rgba(255, 255, 255, 0.14) 0.5px, transparent 0.5px);
+  background-size:
+    3px 3px,
+    4px 4px;
+  background-position:
+    0 0,
+    1px 1px;
+}
+
+.theme-ios26 [data-dashboard-card],
+.theme-ios26 .glass-panel {
+  border-radius: 16px;
+  border: 1px solid var(--ios-border);
+  background: linear-gradient(140deg, var(--ios-bg-a), rgba(223, 235, 255, 0.38));
+  box-shadow: var(--ios-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.theme-ios26 .glass-panel {
+  background: linear-gradient(140deg, rgba(210, 230, 255, 0.45), rgba(192, 215, 247, 0.28));
+}
+
+.theme-ios26 .text-slate-100,
+.theme-ios26 .text-slate-200 {
+  color: var(--ios-text-main) !important;
+}
+
+.theme-ios26 .text-slate-300,
+.theme-ios26 .text-slate-400,
+.theme-ios26 .text-slate-500 {
+  color: var(--ios-text-muted) !important;
+}
+
+.theme-ios26 .border-slate-700\/60,
+.theme-ios26 .border-slate-700\/70,
+.theme-ios26 .border-slate-800\/80 {
+  border-color: rgba(255, 255, 255, 0.32) !important;
+}
+
+.theme-ios26 .bg-slate-950\/55,
+.theme-ios26 .bg-slate-950\/70,
+.theme-ios26 .bg-slate-900\/60,
+.theme-ios26 .bg-slate-900\/70,
+.theme-ios26 .bg-slate-900\/85 {
+  background: rgba(197, 216, 248, 0.22) !important;
+}
+
+.theme-ios26 button,
+.theme-ios26 select,
+.theme-ios26 input {
+  border-radius: 12px;
+}
+
+.theme-ios26 .bg-sky-500\/90,
+.theme-ios26 .bg-sky-400 {
+  background: linear-gradient(135deg, #74b7ff, #8fc8ff) !important;
+  color: #122942 !important;
+}
+
+.theme-ios26 .chart-tooltip {
+  border-radius: 12px;
+  border-color: rgba(204, 223, 255, 0.58);
+  background: rgba(25, 45, 69, 0.84);
+}
+
+.theme-ios26 table {
+  font-size: clamp(0.74rem, 0.3vw + 0.7rem, 0.84rem);
+}
+
+.theme-ios26 thead {
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(12px);
+}
+
+.theme-ios26 tbody tr {
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.theme-ios26 tbody tr:hover {
+  background-color: rgba(189, 214, 251, 0.2);
+}
+
+@media (max-width: 1024px) {
+  .theme-ios26 [data-dashboard-card],
+  .theme-ios26 .glass-panel {
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(13, 23, 38, 0.24);
+  }
+}
+
+@media (max-width: 640px) {
+  .theme-ios26 [data-dashboard-card],
+  .theme-ios26 .glass-panel {
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}

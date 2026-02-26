@@ -89,6 +89,34 @@ Modulo incluido en `/dashboard` para estimar produccion:
 - `GET /api/table/densidad-lab?from&to&limit`
 - `GET /api/tasks` (deshabilitado por defecto en codigo)
 
+## Tema iOS26 y modulo Health (additive)
+
+Se agrego soporte de tema visual seleccionable por usuario y un segundo modulo de dashboard, sin alterar endpoints ni queries existentes.
+
+- Dashboard principal (baseline): `/dashboard`
+- Dashboard ejecutivo/health: `/dashboard/health`
+- Selector de tema: en el header (`Default` / `iOS26`), persistido en `localStorage` via Zustand.
+
+Archivos de tema:
+
+- `apps/web/app/theme/default.css`
+- `apps/web/app/theme/ios26.css`
+
+Notas:
+
+- El tema se aplica mediante clase en `<body>` (`theme-default` o `theme-ios26`).
+- El modulo Health reutiliza las mismas fuentes de datos del hook `useDashboardData`.
+- No se modificaron rutas API (`/api/snapshot`, `/api/series/*`, `/api/table/*`).
+
+### Embebido / A-B por viewport
+
+Si necesitas comportamiento A/B por ancho de pantalla:
+
+1. Desktop/tablet: usar `/dashboard`
+2. Mobile: usar `/dashboard/health`
+
+Puedes resolverlo en tu shell/app host con media query o deteccion del viewport y redireccion condicional.
+
 ## Calidad
 
 ```bash

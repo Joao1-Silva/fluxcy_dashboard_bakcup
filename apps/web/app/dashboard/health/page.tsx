@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { AuthGuard } from '@/components/auth/auth-guard';
-import { DashboardBaselineModule } from '@/components/dashboard/dashboard-baseline-module';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
-import { TaskDrawer } from '@/components/tasks/task-drawer';
+import { DashboardHealthModule } from '@/components/dashboard/dashboard-health-module';
 import { GlobalBanner } from '@/components/layout/global-banner';
+import { TaskDrawer } from '@/components/tasks/task-drawer';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useSocketSync } from '@/hooks/use-socket-sync';
 import { useAuthStore } from '@/store/auth-store';
 import { useDashboardStore } from '@/store/dashboard-store';
 import { useTaskStore } from '@/store/tasks-store';
 
-export default function DashboardPage() {
+export default function DashboardHealthPage() {
   const router = useRouter();
 
   const [smoothFlow, setSmoothFlow] = useState(true);
@@ -83,7 +83,7 @@ export default function DashboardPage() {
     <AuthGuard>
       <main className="min-h-screen px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
         <DashboardHeader
-          moduleVariant="default"
+          moduleVariant="health"
           onOpenTasks={() => setDrawerOpen(true)}
           canManageTasks={canManageTasks}
           displayName={user?.displayName ?? 'Usuario'}
@@ -102,7 +102,7 @@ export default function DashboardPage() {
           />
         ) : null}
 
-        <DashboardBaselineModule
+        <DashboardHealthModule
           data={data}
           snapshot={snapshot}
           smoothFlow={smoothFlow}

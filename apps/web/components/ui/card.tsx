@@ -6,6 +6,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
+      data-dashboard-card="true"
       className={cn(
         'rounded-2xl border border-sky-300/20 bg-slate-900/60 p-4 shadow-glow backdrop-blur-xl',
         className,
