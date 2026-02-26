@@ -127,12 +127,27 @@ router.get('/series/ivo-liq', async (req, res, next) => {
     }
 
     const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
-    const payload = await fetchWithRangeFallback('/total', {
+    try {
+      const produccionPayload = await fetchExternal('/produccion', {
+        from: range.from,
+        to: range.to,
+        stepMin: 1,
+      });
+
+      const produccionSeries = normalizeSeries(produccionPayload, ['liq_acum', 'vliq', 'totalliq']);
+      if (produccionSeries.series.length > 0) {
+        return res.json(produccionSeries);
+      }
+    } catch {
+      // Fallback handled below with /total
+    }
+
+    const totalPayload = await fetchWithRangeFallback('/total', {
       from: range.from,
       to: range.to,
     });
 
-    res.json(normalizeSeries(payload, ['vliq', 'totalliq', 'liq_acum']));
+    res.json(normalizeSeries(totalPayload, ['liq_acum', 'vliq', 'totalliq']));
   } catch (error) {
     next(error);
   }

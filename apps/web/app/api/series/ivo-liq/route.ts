@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { fetchWithRangeFallback } from '@/lib/bff/external-api';
+import { fetchExternal, fetchWithRangeFallback } from '@/lib/bff/external-api';
 import { normalizeSeries } from '@/lib/bff/normalizers';
 import { parseRangeQuery } from '@/lib/bff/query';
 
@@ -15,12 +15,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const produccionPayload = await fetchExternal('/produccion', {
+      from: range.data.from,
+      to: range.data.to,
+      stepMin: 1,
+    });
+
+    const produccionSeries = normalizeSeries(produccionPayload, ['liq_acum', 'vliq', 'totalliq']);
+    if (produccionSeries.series.length > 0) {
+      return NextResponse.json(produccionSeries);
+    }
+
     const payload = await fetchWithRangeFallback('/total', {
       from: range.data.from,
       to: range.data.to,
     });
 
-    return NextResponse.json(normalizeSeries(payload, ['vliq', 'totalliq', 'liq_acum']));
+    return NextResponse.json(normalizeSeries(payload, ['liq_acum', 'vliq', 'totalliq']));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected server error';
     return NextResponse.json({ message }, { status: 500 });
