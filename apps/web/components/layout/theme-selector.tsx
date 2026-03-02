@@ -80,7 +80,7 @@ export function ThemeSelector({ value, onChange }: ThemeSelectorProps) {
             Tema
           </Button>
         </SheetTrigger>
-        <SheetContent className="top-auto h-auto max-h-[80dvh] max-w-none rounded-t-2xl border-l-0 border-t border-slate-700/70 p-4">
+        <SheetContent className="inset-x-0 bottom-0 top-auto h-auto max-h-[80dvh] max-w-none overflow-y-auto rounded-t-2xl border-l-0 border-t border-slate-700/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <SheetHeader className="pr-10">
             <SheetTitle>Tema visual</SheetTitle>
             <SheetDescription>Selecciona el tema para toda la app.</SheetDescription>
