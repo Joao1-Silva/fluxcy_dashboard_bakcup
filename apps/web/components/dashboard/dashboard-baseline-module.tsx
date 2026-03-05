@@ -4,6 +4,7 @@ import { GaugeCircle, Waves } from 'lucide-react';
 
 import { ApiFormacionMassBalanceCalculator } from '@/components/dashboard/api-formacion-mass-balance-calculator';
 import { DataTablePanel } from '@/components/dashboard/data-table-panel';
+import { DilutionSetpointMassBalanceMonitor } from '@/components/dashboard/dilution-setpoint-mass-balance-monitor';
 import { DualKpiCard } from '@/components/dashboard/dual-kpi-card';
 import { GaugeCard } from '@/components/dashboard/gauge-card';
 import { IvoProductionCalculator } from '@/components/dashboard/ivo-production-calculator';
@@ -74,6 +75,10 @@ export function DashboardBaselineModule({
 
       <section className="mb-5">
         <ApiFormacionMassBalanceCalculator />
+      </section>
+
+      <section className="mb-5">
+        <DilutionSetpointMassBalanceMonitor data={data} />
       </section>
 
       <section className="mb-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
