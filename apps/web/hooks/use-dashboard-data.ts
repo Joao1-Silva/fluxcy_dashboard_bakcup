@@ -139,6 +139,17 @@ export function useDashboardData(options: DashboardDataOptions) {
     placeholderData: keepPreviousData,
   });
 
+  const databaseFluxcyQuery = useQuery({
+    queryKey: ['table', 'databasefluxcy', rangeParams.from, rangeParams.to],
+    queryFn: (ctx) =>
+      fetchJson<TableResponse>('/api/table/databasefluxcy', {
+        signal: querySignal(ctx),
+        params: { ...rangeParams, limit: 300 },
+      }),
+    refetchInterval,
+    placeholderData: keepPreviousData,
+  });
+
   return {
     pollingEnabled,
     snapshotQuery,
@@ -149,6 +160,7 @@ export function useDashboardData(options: DashboardDataOptions) {
     pressuresQuery,
     bswQuery,
     densidadLabQuery,
+    databaseFluxcyQuery,
   };
 }
 

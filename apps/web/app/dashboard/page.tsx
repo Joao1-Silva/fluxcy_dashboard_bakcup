@@ -48,6 +48,7 @@ export default function DashboardPage() {
       data.pressuresQuery.error,
       data.bswQuery.error,
       data.densidadLabQuery.error,
+      data.databaseFluxcyQuery.error,
     ],
     [
       data.snapshotQuery.error,
@@ -58,6 +59,7 @@ export default function DashboardPage() {
       data.pressuresQuery.error,
       data.bswQuery.error,
       data.densidadLabQuery.error,
+      data.databaseFluxcyQuery.error,
     ],
   );
 

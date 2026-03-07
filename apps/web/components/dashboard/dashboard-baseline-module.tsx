@@ -150,6 +150,23 @@ export function DashboardBaselineModule({
         />
 
         <DataTablePanel
+          title="DatabaseFluxcy (IVO / VDF / QM)"
+          rows={data.databaseFluxcyQuery.data?.table ?? []}
+          loading={data.databaseFluxcyQuery.isLoading}
+          columns={[
+            { key: 'ivo_liq', label: 'ivo_liq', unit: 'Bls' },
+            { key: 'ivo_gas', label: 'ivo_gas', unit: 'MSCF' },
+            { key: 'qm_liq', label: 'qm_liq', unit: 'Bls/d' },
+            { key: 'qm_gas', label: 'qm_gas', unit: 'MSCFD' },
+            { key: 'vdf_amp', label: 'vdf_amp', unit: 'A' },
+            { key: 'vdf_cons', label: 'vdf_cons', unit: 'kW' },
+            { key: 'vdf_tor', label: 'vdf_tor' },
+            { key: 'vdf_vel', label: 'vdf_vel', unit: 'rpm' },
+          ]}
+          pageSize={6}
+        />
+
+        <DataTablePanel
           title="BSW LAB Changes"
           rows={data.bswQuery.data?.table ?? []}
           loading={data.bswQuery.isLoading}

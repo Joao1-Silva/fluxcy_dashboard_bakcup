@@ -123,8 +123,8 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
         ok: false as const,
         message:
           qtMode === 'delta'
-            ? 'No hay puntos suficientes de qm_liq para modo delta en la ventana de 15 minutos.'
-            : 'No hay datos suficientes de qm_liq en la ventana de 15 minutos.',
+            ? 'No hay puntos suficientes de qm_liq para modo delta en la ventana activa.'
+            : 'No hay datos suficientes de qm_liq en la ventana activa.',
       };
     }
 
@@ -213,7 +213,8 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
       <CardHeader>
         <CardTitle>Dilution Setpoint & Mass-Balance Monitor (70/30)</CardTitle>
         <CardDescription>
-          Monitor en vivo para controlar dilucion sobre hidrocarburo usando qm_liq y WC en ventana de 15 minutos.
+          Monitor en vivo para controlar dilucion sobre hidrocarburo usando qm_liq y WC en la
+          ventana activa del rango seleccionado.
         </CardDescription>
       </CardHeader>
 
@@ -242,7 +243,7 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="dilution-qt-mode">Modo de Qt_15</Label>
+            <Label htmlFor="dilution-qt-mode">Modo de Qt</Label>
             <select
               id="dilution-qt-mode"
               className="h-10 w-full rounded-xl border border-slate-700/70 bg-slate-900/85 px-3 text-sm text-slate-100"
@@ -283,7 +284,7 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
 
         <p className="text-xs text-slate-400">
           Ventana activa: {formatTimeLabel(windowMetrics.windowStartIso)} -{' '}
-          {formatTimeLabel(windowMetrics.windowEndIso)} (15m)
+          {formatTimeLabel(windowMetrics.windowEndIso)}
         </p>
 
         {calculation.ok ? (
@@ -314,14 +315,17 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
                 </span>
               </p>
               <p>
-                Qt_15: <span className="font-semibold text-slate-100">{formatNumeric(calculation.result.Qt, 2)} {FLOW_UNIT}</span>
+                Qt_ventana:{' '}
+                <span className="font-semibold text-slate-100">
+                  {formatNumeric(calculation.result.Qt, 2)} {FLOW_UNIT}
+                </span>
               </p>
               <p>
-                WC_15:{' '}
+                WC_ventana:{' '}
                 <span className="font-semibold text-slate-100">{formatWcFraction(calculation.result.WC)}</span>
               </p>
               <p>
-                Qhc_15:{' '}
+                Qhc_ventana:{' '}
                 <span className="font-semibold text-slate-100">
                   {formatNumeric(calculation.result.Qhc_15, 2)} {FLOW_UNIT}
                 </span>
@@ -340,7 +344,10 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
               <summary className="cursor-pointer select-none">Diagnostico</summary>
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <p>
-                  rho_line_15: <span className="font-semibold text-slate-100">{formatNumeric(windowMetrics.rhoLine15, 5)} g/cm3</span>
+                  rho_line_ventana:{' '}
+                  <span className="font-semibold text-slate-100">
+                    {formatNumeric(windowMetrics.rhoLine15, 5)} g/cm3
+                  </span>
                 </p>
                 <p>
                   rho_w (config): <span className="font-semibold text-slate-100">{formatNumeric(rhoWater ?? null, 5)} g/cm3</span>

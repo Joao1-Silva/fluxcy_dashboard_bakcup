@@ -28,7 +28,7 @@ type SamplePoint = {
   value: number;
 };
 
-const WINDOW_15_MIN_MS = 15 * 60 * 1000;
+const FALLBACK_WINDOW_MS = 15 * 60 * 1000;
 const QM_LIQ_KEYS = ['qm_liq'] as const;
 const WC_KEYS = ['wc', 'watercut', 'water_cut', 'bsw', 'h2o', 'agua_pct', 'bsw_lab'] as const;
 const RHO_LINE_KEYS = ['rho_line', 'densidad_linea', 'densidad', 'rho_liq'] as const;
@@ -91,6 +91,7 @@ function extractSeriesSamples(
   normalizeValue?: (value: number) => number | null,
 ): SamplePoint[] {
   const mapped: SamplePoint[] = [];
+  let previousSample: SamplePoint | null = null;
 
   for (const point of series) {
     const tMs = new Date(point.t).getTime();
@@ -108,14 +109,17 @@ function extractSeriesSamples(
       continue;
     }
 
-    if (tMs < windowStartMs - WINDOW_15_MIN_MS) {
+    if (tMs < windowStartMs) {
+      if (previousSample === null || tMs > previousSample.tMs) {
+        previousSample = { tMs, value: normalized };
+      }
       continue;
     }
 
     mapped.push({ tMs, value: normalized });
   }
 
-  return dedupeByTimestamp(mapped);
+  return dedupeByTimestamp(previousSample ? [previousSample, ...mapped] : mapped);
 }
 
 function extractTableSamples(
@@ -205,21 +209,121 @@ function computeTimeWeightedAverage(
   return area / totalMs;
 }
 
-function resolveWindowBounds(fromIso: string, toIso: string) {
+function resolveRangeBounds(fromIso: string, toIso: string) {
   const fromMs = new Date(fromIso).getTime();
   const toMs = new Date(toIso).getTime();
+  const nowMs = Date.now();
 
   if (Number.isNaN(fromMs) || Number.isNaN(toMs) || toMs <= fromMs) {
-    const end = Date.now();
+    const end = nowMs;
     return {
-      windowStartMs: end - WINDOW_15_MIN_MS,
-      windowEndMs: end,
+      rangeStartMs: end - FALLBACK_WINDOW_MS,
+      rangeUpperBoundMs: end,
     };
   }
 
   return {
-    windowStartMs: Math.max(fromMs, toMs - WINDOW_15_MIN_MS),
-    windowEndMs: toMs,
+    rangeStartMs: fromMs,
+    rangeUpperBoundMs: Math.max(fromMs, Math.min(toMs, nowMs)),
+  };
+}
+
+function extractTimestampMs(value: string): number | null {
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function findLatestSeriesTimestamp(
+  series: SeriesPoint[],
+  keys: readonly string[],
+  rangeStartMs: number,
+  rangeEndMs: number,
+  normalizeValue?: (value: number) => number | null,
+): number | null {
+  let latest: number | null = null;
+
+  for (const point of series) {
+    const tMs = extractTimestampMs(point.t);
+    if (tMs === null || tMs < rangeStartMs || tMs > rangeEndMs) {
+      continue;
+    }
+
+    const value = pickNumericValue(point as Record<string, unknown>, keys);
+    if (value === null) {
+      continue;
+    }
+
+    const normalized = normalizeValue ? normalizeValue(value) : value;
+    if (normalized === null || !Number.isFinite(normalized)) {
+      continue;
+    }
+
+    latest = latest === null ? tMs : Math.max(latest, tMs);
+  }
+
+  return latest;
+}
+
+function findLatestTableTimestamp(
+  rows: TableRow[],
+  keys: readonly string[],
+  rangeStartMs: number,
+  rangeEndMs: number,
+  normalizeValue?: (value: number) => number | null,
+): number | null {
+  let latest: number | null = null;
+
+  for (const row of rows) {
+    const tMs = extractTimestampMs(row.time);
+    if (tMs === null || tMs < rangeStartMs || tMs > rangeEndMs) {
+      continue;
+    }
+
+    const value = pickNumericValue(row as Record<string, unknown>, keys);
+    if (value === null) {
+      continue;
+    }
+
+    const normalized = normalizeValue ? normalizeValue(value) : value;
+    if (normalized === null || !Number.isFinite(normalized)) {
+      continue;
+    }
+
+    latest = latest === null ? tMs : Math.max(latest, tMs);
+  }
+
+  return latest;
+}
+
+function pickLatestTimestamp(...timestamps: Array<number | null>): number | null {
+  const valid = timestamps.filter((value): value is number => value !== null && Number.isFinite(value));
+  if (valid.length === 0) {
+    return null;
+  }
+
+  return Math.max(...valid);
+}
+
+function resolveWindowBounds(
+  rangeStartMs: number,
+  rangeUpperBoundMs: number,
+  latestQmTimestampMs: number | null,
+  latestAnyTimestampMs: number | null,
+) {
+  const latestAvailableMs = latestQmTimestampMs ?? latestAnyTimestampMs;
+  let windowEndMs = latestAvailableMs ?? rangeUpperBoundMs;
+
+  if (!Number.isFinite(windowEndMs) || windowEndMs < rangeStartMs) {
+    windowEndMs = rangeUpperBoundMs;
+  }
+
+  if (windowEndMs < rangeStartMs) {
+    windowEndMs = rangeStartMs;
+  }
+
+  return {
+    windowStartMs: rangeStartMs,
+    windowEndMs,
   };
 }
 
@@ -230,12 +334,34 @@ export function useDilutionWindowMetrics(
   const appliedRange = useDashboardStore((state) => state.appliedRange);
 
   return useMemo(() => {
-    const { windowStartMs, windowEndMs } = resolveWindowBounds(appliedRange.from, appliedRange.to);
-
     const flowSeries = data.flowQuery.data?.series ?? [];
     const vpSeries = data.vpQuery.data?.series ?? [];
     const rhoSeries = data.rhoQuery.data?.series ?? [];
     const bswRows = data.bswQuery.data?.table ?? [];
+    const { rangeStartMs, rangeUpperBoundMs } = resolveRangeBounds(appliedRange.from, appliedRange.to);
+
+    const latestQmTimestampMs = findLatestSeriesTimestamp(
+      flowSeries,
+      QM_LIQ_KEYS,
+      rangeStartMs,
+      rangeUpperBoundMs,
+    );
+
+    const latestAnyTimestampMs = pickLatestTimestamp(
+      latestQmTimestampMs,
+      findLatestSeriesTimestamp(flowSeries, WC_KEYS, rangeStartMs, rangeUpperBoundMs, normalizeWcToFraction),
+      findLatestSeriesTimestamp(vpSeries, WC_KEYS, rangeStartMs, rangeUpperBoundMs, normalizeWcToFraction),
+      findLatestSeriesTimestamp(rhoSeries, WC_KEYS, rangeStartMs, rangeUpperBoundMs, normalizeWcToFraction),
+      findLatestSeriesTimestamp(rhoSeries, RHO_LINE_KEYS, rangeStartMs, rangeUpperBoundMs),
+      findLatestTableTimestamp(bswRows, WC_KEYS, rangeStartMs, rangeUpperBoundMs, normalizeWcToFraction),
+    );
+
+    const { windowStartMs, windowEndMs } = resolveWindowBounds(
+      rangeStartMs,
+      rangeUpperBoundMs,
+      latestQmTimestampMs,
+      latestAnyTimestampMs,
+    );
 
     const qmSamples = extractSeriesSamples(flowSeries, QM_LIQ_KEYS, windowStartMs, windowEndMs);
     const qtAvg = computeTimeWeightedAverage(qmSamples, windowStartMs, windowEndMs);
