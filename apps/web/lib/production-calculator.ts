@@ -12,6 +12,7 @@ export type ProductionCalculatorResult = {
   ivoDelta: number;
   hourlyRate: number;
   projected24h: number;
+  grossBarrels: number;
   waterBarrels: number;
   netBarrels: number;
 };
@@ -60,8 +61,17 @@ export function calculateProductionByIvo(
   const ivoDelta = input.ivoLiqTo - input.ivoLiqFrom;
   const hourlyRate = ivoDelta / hours;
   const projected24h = hourlyRate * 24;
-  const waterBarrels = projected24h * (input.waterPercent / 100);
-  const netBarrels = projected24h - input.diluentBarrels - waterBarrels;
+  const grossBarrels = projected24h - input.diluentBarrels;
+
+  if (grossBarrels < 0) {
+    return {
+      ok: false,
+      message: 'El volumen de diluente no puede ser mayor al volumen total proyectado.',
+    };
+  }
+
+  const waterBarrels = grossBarrels * (input.waterPercent / 100);
+  const netBarrels = grossBarrels - waterBarrels;
 
   return {
     ok: true,
@@ -70,6 +80,7 @@ export function calculateProductionByIvo(
       ivoDelta,
       hourlyRate,
       projected24h,
+      grossBarrels,
       waterBarrels,
       netBarrels,
     },

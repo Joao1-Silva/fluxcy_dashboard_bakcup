@@ -8,6 +8,7 @@ export type DilutionSetpointInput = {
 export type DilutionSetpointResult = {
   Qt: number;
   WC: number;
+  Qgross_15: number;
   Qhc_15: number;
   Qd_target: number;
   delta_Qd: number;
@@ -74,7 +75,15 @@ export function computeDilutionSetpoint(input: DilutionSetpointInput): DilutionS
     };
   }
 
-  const Qhc_15 = input.Qt * (1 - input.WC);
+  const Qgross_15 = input.Qt - input.Qd_actual;
+  if (!(Qgross_15 > 0)) {
+    return {
+      ok: false,
+      message: 'Qt debe ser mayor que Qd_actual para obtener volumen bruto de formacion.',
+    };
+  }
+
+  const Qhc_15 = Qgross_15 * (1 - input.WC);
   if (!(Qhc_15 > 0)) {
     return {
       ok: false,
@@ -98,6 +107,7 @@ export function computeDilutionSetpoint(input: DilutionSetpointInput): DilutionS
     result: {
       Qt: input.Qt,
       WC: input.WC,
+      Qgross_15,
       Qhc_15,
       Qd_target,
       delta_Qd,

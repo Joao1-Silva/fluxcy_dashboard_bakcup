@@ -24,6 +24,7 @@ type DilutionSetpointMassBalanceMonitorProps = {
 
 const FLOW_UNIT = 'Bls/d';
 const DEFAULT_RATIO_DIL = 0.3;
+const API_CORREGIDO_60F = 16;
 
 function parseNumberInput(raw: string): number | null {
   const normalized = raw.trim().replace(',', '.');
@@ -153,46 +154,51 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
   const diagnostics = useMemo(() => {
     const warnings: string[] = [];
     let rhoHcCorr: number | null = null;
-    let apiMixCorr: number | null = null;
+    let apiMixLine: number | null = null;
+    const apiMixCorr60F = API_CORREGIDO_60F;
 
     if (windowMetrics.rhoLine15 === null) {
       warnings.push('rho_line no disponible en ventana (se omite API_mix_corr).');
-      return { warnings, rhoHcCorr, apiMixCorr };
+      return { warnings, rhoHcCorr, apiMixLine, apiMixCorr60F };
     }
 
     if (wcForCalculation === null) {
       warnings.push('WC no disponible para diagnostico.');
-      return { warnings, rhoHcCorr, apiMixCorr };
+      return { warnings, rhoHcCorr, apiMixLine, apiMixCorr60F };
     }
 
     if (rhoWater === null || rhoWater <= 0) {
       warnings.push('rho_w debe ser numerico y > 0.');
-      return { warnings, rhoHcCorr, apiMixCorr };
+      return { warnings, rhoHcCorr, apiMixLine, apiMixCorr60F };
     }
 
     const denominator = 1 - wcForCalculation;
     if (!(denominator > 0)) {
       warnings.push('WC invalido para calcular rho_hc_corr.');
-      return { warnings, rhoHcCorr, apiMixCorr };
+      return { warnings, rhoHcCorr, apiMixLine, apiMixCorr60F };
     }
 
     rhoHcCorr = (windowMetrics.rhoLine15 - wcForCalculation * rhoWater) / denominator;
     if (!Number.isFinite(rhoHcCorr) || rhoHcCorr <= 0) {
       warnings.push('rho_hc_corr fuera de rango fisico.');
-      return { warnings, rhoHcCorr: null, apiMixCorr: null };
+      return { warnings, rhoHcCorr: null, apiMixLine: null, apiMixCorr60F };
     }
 
-    apiMixCorr = 141.5 / rhoHcCorr - 131.5;
-    if (!Number.isFinite(apiMixCorr)) {
-      warnings.push('API_mix_corr invalido (NaN/Infinity).');
-      return { warnings, rhoHcCorr, apiMixCorr: null };
+    apiMixLine = 141.5 / rhoHcCorr - 131.5;
+    if (!Number.isFinite(apiMixLine)) {
+      warnings.push('API_mix_linea invalido (NaN/Infinity).');
+      return { warnings, rhoHcCorr, apiMixLine: null, apiMixCorr60F };
     }
 
-    if (apiMixCorr < 0 || apiMixCorr > 80) {
-      warnings.push('API_mix_corr fuera del rango tipico 0-80 API.');
+    if (apiMixLine < 0 || apiMixLine > 80) {
+      warnings.push('API_mix_linea fuera del rango tipico 0-80 API.');
     }
 
-    return { warnings, rhoHcCorr, apiMixCorr };
+    if (apiMixLine <= apiMixCorr60F) {
+      warnings.push('API de linea no supera el API corregido de referencia (16 API @ 60F).');
+    }
+
+    return { warnings, rhoHcCorr, apiMixLine, apiMixCorr60F };
   }, [rhoWater, wcForCalculation, windowMetrics.rhoLine15]);
 
   const wcSourceLabel = useMemo(() => {
@@ -331,6 +337,12 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
                 </span>
               </p>
               <p>
+                Brutos_ventana (Qt - Qd):{' '}
+                <span className="font-semibold text-slate-100">
+                  {formatNumeric(calculation.result.Qgross_15, 2)} {FLOW_UNIT}
+                </span>
+              </p>
+              <p>
                 Puntos qm_liq:{' '}
                 <span className="font-semibold text-slate-100">{windowMetrics.qmPoints}</span>
               </p>
@@ -363,8 +375,16 @@ export function DilutionSetpointMassBalanceMonitor({ data }: DilutionSetpointMas
                   />
                 </div>
                 <p>
-                  API_mix_corr aprox:{' '}
-                  <span className="font-semibold text-slate-100">{formatNumeric(diagnostics.apiMixCorr, 2)} API</span>
+                  API_mix_linea aprox:{' '}
+                  <span className="font-semibold text-slate-100">
+                    {formatNumeric(diagnostics.apiMixLine, 2)} API
+                  </span>
+                </p>
+                <p>
+                  API_mix_corr (60F):{' '}
+                  <span className="font-semibold text-slate-100">
+                    {formatNumeric(diagnostics.apiMixCorr60F, 2)} API
+                  </span>
                 </p>
                 <p>
                   rho_hc_corr:{' '}

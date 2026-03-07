@@ -193,6 +193,12 @@ export function IvoProductionCalculator() {
               </span>
             </p>
             <p>
+              Brutos (Total - Diluente):{' '}
+              <span className="font-semibold text-slate-100">
+                {formatNumeric(calculation.result.grossBarrels, 2)} Bls
+              </span>
+            </p>
+            <p>
               Agua descontada:{' '}
               <span className="font-semibold text-amber-300">
                 {formatNumeric(calculation.result.waterBarrels, 2)} Bls

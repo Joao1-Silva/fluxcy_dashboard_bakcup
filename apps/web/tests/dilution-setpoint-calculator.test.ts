@@ -15,10 +15,11 @@ describe('dilution setpoint calculator', () => {
       return;
     }
 
-    expect(result.result.Qhc_15).toBeCloseTo(80, 6);
-    expect(result.result.Qd_target).toBeCloseTo(24, 6);
-    expect(result.result.Qf_est).toBeCloseTo(56, 6);
-    expect(result.result.delta_Qd).toBeCloseTo(4, 6);
+    expect(result.result.Qgross_15).toBeCloseTo(80, 6);
+    expect(result.result.Qhc_15).toBeCloseTo(64, 6);
+    expect(result.result.Qd_target).toBeCloseTo(19.2, 6);
+    expect(result.result.Qf_est).toBeCloseTo(44.8, 6);
+    expect(result.result.delta_Qd).toBeCloseTo(-0.8, 6);
   });
 
   it('falla cuando Qd_actual es negativo', () => {
@@ -35,6 +36,16 @@ describe('dilution setpoint calculator', () => {
     const result = computeDilutionSetpoint({
       Qt: 100,
       WC: 1,
+      Qd_actual: 10,
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('falla cuando Qt es menor o igual que Qd_actual', () => {
+    const result = computeDilutionSetpoint({
+      Qt: 10,
+      WC: 0.2,
       Qd_actual: 10,
     });
 
