@@ -7,6 +7,15 @@ import { parseEnumParam, parseNumberParam, parseRangeQuery } from '@/lib/bff/que
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+const EXTERNAL_SERIES_TIME_SHIFT_MS = 60 * 60 * 1000;
+
+function shiftIsoTimestamp(iso: string, shiftMs: number) {
+  const epoch = new Date(iso).getTime();
+  if (Number.isNaN(epoch)) {
+    return iso;
+  }
+  return new Date(epoch + shiftMs).toISOString();
+}
 
 export async function GET(request: NextRequest) {
   const range = parseRangeQuery(request);
@@ -32,7 +41,15 @@ export async function GET(request: NextRequest) {
       alpha: alpha.data,
     });
 
-    return NextResponse.json(normalizeSeries(payload, ['qm_liq', 'qm_gas']));
+    const normalized = normalizeSeries(payload, ['qm_liq', 'qm_gas']);
+    const shifted = {
+      series: normalized.series.map((point) => ({
+        ...point,
+        t: shiftIsoTimestamp(point.t, EXTERNAL_SERIES_TIME_SHIFT_MS),
+      })),
+    };
+
+    return NextResponse.json(shifted);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected server error';
     const status = message.includes('Finalizo su prueba') ? 403 : 500;

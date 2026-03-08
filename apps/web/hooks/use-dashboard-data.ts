@@ -5,7 +5,6 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 
 import { fetchJson, querySignal } from '@/lib/api-client';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { shiftIsoForExternalApi } from '@/lib/time';
 import { useDashboardStore } from '@/store/dashboard-store';
 import type { SeriesResponse, SnapshotResponse, TableResponse } from '@/types/dashboard';
 
@@ -40,16 +39,7 @@ export function useDashboardData(options: DashboardDataOptions) {
   const pollingEnabled = getPollingEnabled(mode, fallbackPolling, paused);
   const refetchInterval = pollingEnabled ? refreshMs : false;
 
-  const shiftedRangeParams = useMemo(
-    () => ({
-      // Series endpoints (qm/vp/rho) are one hour behind in the external API.
-      from: shiftIsoForExternalApi(debouncedRange.from),
-      to: shiftIsoForExternalApi(debouncedRange.to),
-    }),
-    [debouncedRange.from, debouncedRange.to],
-  );
-
-  const directRangeParams = useMemo(
+  const rangeParams = useMemo(
     () => ({
       from: debouncedRange.from,
       to: debouncedRange.to,
@@ -66,19 +56,12 @@ export function useDashboardData(options: DashboardDataOptions) {
   });
 
   const flowQuery = useQuery({
-    queryKey: [
-      'series',
-      'flow',
-      shiftedRangeParams.from,
-      shiftedRangeParams.to,
-      options.smoothFlow,
-      options.alpha,
-    ],
+    queryKey: ['series', 'flow', rangeParams.from, rangeParams.to, options.smoothFlow, options.alpha],
     queryFn: (ctx) =>
       fetchJson<SeriesResponse>('/api/series/flow', {
         signal: querySignal(ctx),
         params: {
-          ...shiftedRangeParams,
+          ...rangeParams,
           smooth: options.smoothFlow ? '1' : '0',
           alpha: options.alpha,
         },
@@ -88,77 +71,77 @@ export function useDashboardData(options: DashboardDataOptions) {
   });
 
   const vpQuery = useQuery({
-    queryKey: ['series', 'vp', shiftedRangeParams.from, shiftedRangeParams.to],
+    queryKey: ['series', 'vp', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<SeriesResponse>('/api/series/vp', {
         signal: querySignal(ctx),
-        params: shiftedRangeParams,
+        params: rangeParams,
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const rhoQuery = useQuery({
-    queryKey: ['series', 'rho', shiftedRangeParams.from, shiftedRangeParams.to],
+    queryKey: ['series', 'rho', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<SeriesResponse>('/api/series/rho', {
         signal: querySignal(ctx),
-        params: shiftedRangeParams,
+        params: rangeParams,
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const produccionQuery = useQuery({
-    queryKey: ['series', 'produccion', directRangeParams.from, directRangeParams.to],
+    queryKey: ['series', 'produccion', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<SeriesResponse>('/api/series/produccion', {
         signal: querySignal(ctx),
-        params: { ...directRangeParams, stepMin: 1 },
+        params: { ...rangeParams, stepMin: 1 },
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const pressuresQuery = useQuery({
-    queryKey: ['table', 'pressures', directRangeParams.from, directRangeParams.to],
+    queryKey: ['table', 'pressures', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<TableResponse>('/api/table/pressures', {
         signal: querySignal(ctx),
-        params: { ...directRangeParams, limit: 200 },
+        params: { ...rangeParams, limit: 200 },
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const bswQuery = useQuery({
-    queryKey: ['table', 'bsw', directRangeParams.from, directRangeParams.to],
+    queryKey: ['table', 'bsw', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<TableResponse>('/api/table/bsw-lab', {
         signal: querySignal(ctx),
-        params: { ...directRangeParams, limit: 200 },
+        params: { ...rangeParams, limit: 200 },
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const densidadLabQuery = useQuery({
-    queryKey: ['table', 'densidadLab', directRangeParams.from, directRangeParams.to],
+    queryKey: ['table', 'densidadLab', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<TableResponse>('/api/table/densidad-lab', {
         signal: querySignal(ctx),
-        params: { ...directRangeParams, limit: 200 },
+        params: { ...rangeParams, limit: 200 },
       }),
     refetchInterval,
     placeholderData: keepPreviousData,
   });
 
   const databaseFluxcyQuery = useQuery({
-    queryKey: ['table', 'databasefluxcy', directRangeParams.from, directRangeParams.to],
+    queryKey: ['table', 'databasefluxcy', rangeParams.from, rangeParams.to],
     queryFn: (ctx) =>
       fetchJson<TableResponse>('/api/table/databasefluxcy', {
         signal: querySignal(ctx),
-        params: { ...directRangeParams, limit: 300 },
+        params: { ...rangeParams, limit: 300 },
       }),
     refetchInterval,
     placeholderData: keepPreviousData,

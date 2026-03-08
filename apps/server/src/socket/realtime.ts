@@ -10,6 +10,17 @@ type FlowRequest = {
   alpha?: number;
 };
 
+const EXTERNAL_SERIES_TIME_SHIFT_MS = 60 * 60 * 1000;
+
+function shiftIsoTimestamp(iso: string, shiftMs: number) {
+  const epoch = new Date(iso).getTime();
+  if (Number.isNaN(epoch)) {
+    return iso;
+  }
+
+  return new Date(epoch + shiftMs).toISOString();
+}
+
 async function fetchSnapshot() {
   const [clockmeter, drivgain, temp, possvalve, rholiq, total, densidadapi] = await Promise.all([
     fetchExternal('/clockmeter'),
@@ -40,8 +51,8 @@ async function fetchFlowSeries(params: FlowRequest) {
   const rawToMs = params.to ? new Date(params.to).getTime() : nowMs;
 
   const fromMs = Number.isFinite(rawFromMs) ? rawFromMs : fallbackFromMs;
-  const cappedToMs = Number.isFinite(rawToMs) ? Math.min(rawToMs, nowMs) : nowMs;
-  const toMs = cappedToMs > fromMs ? cappedToMs : nowMs;
+  const resolvedToMs = Number.isFinite(rawToMs) ? rawToMs : nowMs;
+  const toMs = resolvedToMs > fromMs ? resolvedToMs : fromMs + 60_000;
 
   const from = new Date(fromMs).toISOString();
   const to = new Date(toMs).toISOString();
@@ -53,7 +64,13 @@ async function fetchFlowSeries(params: FlowRequest) {
     alpha: params.alpha,
   });
 
-  return normalizeSeries(payload, ['qm_liq', 'qm_gas']);
+  const normalized = normalizeSeries(payload, ['qm_liq', 'qm_gas']);
+  return {
+    series: normalized.series.map((point) => ({
+      ...point,
+      t: shiftIsoTimestamp(point.t, EXTERNAL_SERIES_TIME_SHIFT_MS),
+    })),
+  };
 }
 
 export function initRealtime(io: Server, intervalMs: number) {

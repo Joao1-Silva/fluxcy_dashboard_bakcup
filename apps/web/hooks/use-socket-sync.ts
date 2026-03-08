@@ -6,7 +6,6 @@ import { io, type Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
 import { APP_CONFIG } from '@/lib/app-config';
-import { shiftIsoForExternalApi } from '@/lib/time';
 import { useDashboardStore } from '@/store/dashboard-store';
 import type { Snapshot } from '@/types/dashboard';
 
@@ -70,14 +69,7 @@ export function useSocketSync({ smoothFlow, alpha }: UseSocketSyncOptions) {
       const current = flowOptionsRef.current;
 
       queryClient.setQueryData(
-        [
-          'series',
-          'flow',
-          shiftIsoForExternalApi(range.from),
-          shiftIsoForExternalApi(range.to),
-          current.smoothFlow,
-          current.alpha,
-        ],
+        ['series', 'flow', range.from, range.to, current.smoothFlow, current.alpha],
         { series },
       );
     });
@@ -112,8 +104,8 @@ export function useSocketSync({ smoothFlow, alpha }: UseSocketSyncOptions) {
     }
 
     socketRef.current.emit('series:flow:request', {
-      from: shiftIsoForExternalApi(appliedRange.from),
-      to: shiftIsoForExternalApi(appliedRange.to),
+      from: appliedRange.from,
+      to: appliedRange.to,
       smooth: smoothFlow ? '1' : '0',
       alpha,
     });

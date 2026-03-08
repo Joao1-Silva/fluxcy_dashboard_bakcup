@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const range = parseRangeQuery(request);
+  const range = parseRangeQuery(request, { capToNow: true });
   if (!range.ok) {
     return NextResponse.json({ message: range.message }, { status: 400 });
   }

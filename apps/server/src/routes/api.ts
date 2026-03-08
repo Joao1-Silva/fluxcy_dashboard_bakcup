@@ -20,7 +20,7 @@ const produccionSchema = rangeSchema.extend({
 });
 
 const router = Router();
-const EXTERNAL_SERIES_RANGE_SHIFT_MS = 60 * 60 * 1000;
+const EXTERNAL_SERIES_TIME_SHIFT_MS = 60 * 60 * 1000;
 
 function defaultRange() {
   const to = new Date();
@@ -38,6 +38,7 @@ function normalizeRange(
   },
   options?: {
     shiftMs?: number;
+    capToNow?: boolean;
   },
 ) {
   const fallback = defaultRange();
@@ -50,11 +51,15 @@ function normalizeRange(
     return { ok: false as const, message: 'Parametros invalidos: from/to deben ser fechas validas.' };
   }
 
-  const cappedToMs = Math.min(toMs, Date.now());
-  if (cappedToMs <= fromMs) {
+  const capToNow = options?.capToNow ?? true;
+  const boundedToMs = capToNow ? Math.min(toMs, Date.now()) : toMs;
+
+  if (boundedToMs <= fromMs) {
     return {
       ok: false as const,
-      message: 'Parametros invalidos: from debe ser menor que to y no puede quedar en el futuro.',
+      message: capToNow
+        ? 'Parametros invalidos: from debe ser menor que to y no puede quedar en el futuro.'
+        : 'Parametros invalidos: from debe ser menor que to.',
     };
   }
 
@@ -63,7 +68,7 @@ function normalizeRange(
     ok: true as const,
     data: {
       from: new Date(fromMs + shiftMs).toISOString(),
-      to: new Date(cappedToMs + shiftMs).toISOString(),
+      to: new Date(boundedToMs + shiftMs).toISOString(),
     },
   };
 }
@@ -74,6 +79,24 @@ async function fetchWithRangeFallback(endpoint: string, params: Record<string, s
   } catch {
     return fetchExternal(endpoint);
   }
+}
+
+function shiftIsoTimestamp(iso: string, shiftMs: number) {
+  const epoch = new Date(iso).getTime();
+  if (Number.isNaN(epoch)) {
+    return iso;
+  }
+
+  return new Date(epoch + shiftMs).toISOString();
+}
+
+function shiftSeriesTimestamps(payload: { series: Array<{ t: string } & Record<string, number | string | null>> }) {
+  return {
+    series: payload.series.map((point) => ({
+      ...point,
+      t: shiftIsoTimestamp(point.t, EXTERNAL_SERIES_TIME_SHIFT_MS),
+    })),
+  };
 }
 
 router.get('/snapshot', async (_req, res, next) => {
@@ -111,7 +134,7 @@ router.get('/series/flow', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    const normalizedRange = normalizeRange(parsed.data, { capToNow: false });
     if (!normalizedRange.ok) {
       return res.status(400).json({ message: normalizedRange.message });
     }
@@ -124,7 +147,8 @@ router.get('/series/flow', async (req, res, next) => {
       alpha: parsed.data.alpha,
     });
 
-    res.json(normalizeSeries(payload, ['qm_liq', 'qm_gas']));
+    const normalized = normalizeSeries(payload, ['qm_liq', 'qm_gas']);
+    res.json(shiftSeriesTimestamps(normalized));
   } catch (error) {
     next(error);
   }
@@ -137,7 +161,7 @@ router.get('/series/vp', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    const normalizedRange = normalizeRange(parsed.data, { capToNow: false });
     if (!normalizedRange.ok) {
       return res.status(400).json({ message: normalizedRange.message });
     }
@@ -145,7 +169,8 @@ router.get('/series/vp', async (req, res, next) => {
     const range = normalizedRange.data;
     const payload = await fetchExternal('/vp', { from: range.from, to: range.to });
 
-    res.json(normalizeSeries(payload, ['temp_liq', 'temperatura_gas_f', 'psi_gas', 'psi_liq']));
+    const normalized = normalizeSeries(payload, ['temp_liq', 'temperatura_gas_f', 'psi_gas', 'psi_liq']);
+    res.json(shiftSeriesTimestamps(normalized));
   } catch (error) {
     next(error);
   }
@@ -158,7 +183,7 @@ router.get('/series/rho', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    const normalizedRange = normalizeRange(parsed.data, { capToNow: false });
     if (!normalizedRange.ok) {
       return res.status(400).json({ message: normalizedRange.message });
     }
@@ -166,7 +191,8 @@ router.get('/series/rho', async (req, res, next) => {
     const range = normalizedRange.data;
     const payload = await fetchExternal('/rho', { from: range.from, to: range.to });
 
-    res.json(normalizeSeries(payload, ['rho_liq', 'rho_gas']));
+    const normalized = normalizeSeries(payload, ['rho_liq', 'rho_gas']);
+    res.json(shiftSeriesTimestamps(normalized));
   } catch (error) {
     next(error);
   }

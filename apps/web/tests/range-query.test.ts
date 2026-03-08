@@ -32,11 +32,26 @@ describe('parseRangeQuery', () => {
     expect(parsed.data.to).toBe('2026-03-08T14:00:00.000Z');
   });
 
-  it('caps future `to` values at current server time', () => {
+  it('keeps future `to` values when capToNow is disabled', () => {
     const request = buildRequest(
       'http://localhost:3001/api/series/produccion?from=2026-03-08T14:00:00.000Z&to=2026-03-08T16:00:00.000Z',
     );
     const parsed = parseRangeQuery(request);
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    expect(parsed.data.from).toBe('2026-03-08T14:00:00.000Z');
+    expect(parsed.data.to).toBe('2026-03-08T16:00:00.000Z');
+  });
+
+  it('caps future `to` values at current server time when capToNow is enabled', () => {
+    const request = buildRequest(
+      'http://localhost:3001/api/series/produccion?from=2026-03-08T14:00:00.000Z&to=2026-03-08T16:00:00.000Z',
+    );
+    const parsed = parseRangeQuery(request, { capToNow: true });
 
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) {
@@ -51,7 +66,7 @@ describe('parseRangeQuery', () => {
     const request = buildRequest(
       'http://localhost:3001/api/series/produccion?from=2026-03-08T15:40:00.000Z&to=2026-03-08T16:00:00.000Z',
     );
-    const parsed = parseRangeQuery(request);
+    const parsed = parseRangeQuery(request, { capToNow: true });
 
     expect(parsed.ok).toBe(false);
     if (parsed.ok) {
