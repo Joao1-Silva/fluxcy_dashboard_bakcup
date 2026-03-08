@@ -33,9 +33,18 @@ async function fetchSnapshot() {
 }
 
 async function fetchFlowSeries(params: FlowRequest) {
-  const now = new Date();
-  const from = params.from ?? new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
-  const to = params.to ?? now.toISOString();
+  const nowMs = Date.now();
+  const fallbackFromMs = nowMs - 6 * 60 * 60 * 1000;
+
+  const rawFromMs = params.from ? new Date(params.from).getTime() : fallbackFromMs;
+  const rawToMs = params.to ? new Date(params.to).getTime() : nowMs;
+
+  const fromMs = Number.isFinite(rawFromMs) ? rawFromMs : fallbackFromMs;
+  const cappedToMs = Number.isFinite(rawToMs) ? Math.min(rawToMs, nowMs) : nowMs;
+  const toMs = cappedToMs > fromMs ? cappedToMs : nowMs;
+
+  const from = new Date(fromMs).toISOString();
+  const to = new Date(toMs).toISOString();
 
   const payload = await fetchExternal('/qm', {
     from,

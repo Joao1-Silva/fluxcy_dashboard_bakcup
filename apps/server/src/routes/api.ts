@@ -20,6 +20,7 @@ const produccionSchema = rangeSchema.extend({
 });
 
 const router = Router();
+const EXTERNAL_SERIES_RANGE_SHIFT_MS = 60 * 60 * 1000;
 
 function defaultRange() {
   const to = new Date();
@@ -27,6 +28,43 @@ function defaultRange() {
   return {
     from: from.toISOString(),
     to: to.toISOString(),
+  };
+}
+
+function normalizeRange(
+  raw: {
+    from?: string;
+    to?: string;
+  },
+  options?: {
+    shiftMs?: number;
+  },
+) {
+  const fallback = defaultRange();
+  const fromIso = raw.from ?? fallback.from;
+  const toIso = raw.to ?? fallback.to;
+
+  const fromMs = new Date(fromIso).getTime();
+  const toMs = new Date(toIso).getTime();
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return { ok: false as const, message: 'Parametros invalidos: from/to deben ser fechas validas.' };
+  }
+
+  const cappedToMs = Math.min(toMs, Date.now());
+  if (cappedToMs <= fromMs) {
+    return {
+      ok: false as const,
+      message: 'Parametros invalidos: from debe ser menor que to y no puede quedar en el futuro.',
+    };
+  }
+
+  const shiftMs = options?.shiftMs ?? 0;
+  return {
+    ok: true as const,
+    data: {
+      from: new Date(fromMs + shiftMs).toISOString(),
+      to: new Date(cappedToMs + shiftMs).toISOString(),
+    },
   };
 }
 
@@ -73,12 +111,17 @@ router.get('/series/flow', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
+    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
+
+    const range = normalizedRange.data;
     const payload = await fetchExternal('/qm', {
       from: range.from,
       to: range.to,
-      smooth: range.smooth ?? '1',
-      alpha: range.alpha,
+      smooth: parsed.data.smooth ?? '1',
+      alpha: parsed.data.alpha,
     });
 
     res.json(normalizeSeries(payload, ['qm_liq', 'qm_gas']));
@@ -94,7 +137,12 @@ router.get('/series/vp', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
+    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
+
+    const range = normalizedRange.data;
     const payload = await fetchExternal('/vp', { from: range.from, to: range.to });
 
     res.json(normalizeSeries(payload, ['temp_liq', 'temperatura_gas_f', 'psi_gas', 'psi_liq']));
@@ -110,7 +158,12 @@ router.get('/series/rho', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
+    const normalizedRange = normalizeRange(parsed.data, { shiftMs: EXTERNAL_SERIES_RANGE_SHIFT_MS });
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
+
+    const range = normalizedRange.data;
     const payload = await fetchExternal('/rho', { from: range.from, to: range.to });
 
     res.json(normalizeSeries(payload, ['rho_liq', 'rho_gas']));
@@ -126,7 +179,12 @@ router.get('/series/ivo-liq', async (req, res, next) => {
       return res.status(400).json({ message: 'Parametros invalidos', errors: parsed.error.flatten() });
     }
 
-    const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
+    const normalizedRange = normalizeRange(parsed.data);
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
+
+    const range = normalizedRange.data;
     try {
       const produccionPayload = await fetchExternal('/produccion', {
         from: range.from,
@@ -160,7 +218,12 @@ router.get('/series/produccion', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const range = parsed.data.from && parsed.data.to ? parsed.data : { ...parsed.data, ...defaultRange() };
+    const normalizedRange = normalizeRange(parsed.data);
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
+
+    const range = normalizedRange.data;
     const payload = await fetchExternal('/produccion', {
       from: range.from,
       to: range.to,
@@ -180,12 +243,14 @@ router.get('/table/pressures', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const payload = await fetchWithRangeFallback('/pressures', {
-      from: parsed.data.from,
-      to: parsed.data.to,
-    });
+    const normalizedRange = normalizeRange(parsed.data);
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
 
-    const normalized = normalizeTable(payload, [
+    const payload = await fetchWithRangeFallback('/pressures', normalizedRange.data);
+
+    const normalizedTable = normalizeTable(payload, [
       'presion_cabezal',
       'presion_casing',
       'presion_linea',
@@ -193,7 +258,7 @@ router.get('/table/pressures', async (req, res, next) => {
     ]);
 
     const limit = parsed.data.limit ?? 100;
-    res.json({ table: normalized.table.slice(0, limit) });
+    res.json({ table: normalizedTable.table.slice(0, limit) });
   } catch (error) {
     next(error);
   }
@@ -206,13 +271,15 @@ router.get('/table/bsw-lab', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const payload = await fetchWithRangeFallback('/bsw_lab_changes', {
-      from: parsed.data.from,
-      to: parsed.data.to,
-    });
+    const normalizedRange = normalizeRange(parsed.data);
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
 
-    const normalized = normalizeTable(payload, ['bsw_lab']);
-    res.json({ table: normalized.table.slice(0, parsed.data.limit ?? 100) });
+    const payload = await fetchWithRangeFallback('/bsw_lab_changes', normalizedRange.data);
+
+    const normalizedTable = normalizeTable(payload, ['bsw_lab']);
+    res.json({ table: normalizedTable.table.slice(0, parsed.data.limit ?? 100) });
   } catch (error) {
     next(error);
   }
@@ -225,13 +292,15 @@ router.get('/table/densidad-lab', async (req, res, next) => {
       return res.status(400).json({ message: 'Parámetros inválidos', errors: parsed.error.flatten() });
     }
 
-    const payload = await fetchWithRangeFallback('/densidad_lab_changes', {
-      from: parsed.data.from,
-      to: parsed.data.to,
-    });
+    const normalizedRange = normalizeRange(parsed.data);
+    if (!normalizedRange.ok) {
+      return res.status(400).json({ message: normalizedRange.message });
+    }
 
-    const normalized = normalizeTable(payload, ['densidad_lab']);
-    res.json({ table: normalized.table.slice(0, parsed.data.limit ?? 100) });
+    const payload = await fetchWithRangeFallback('/densidad_lab_changes', normalizedRange.data);
+
+    const normalizedTable = normalizeTable(payload, ['densidad_lab']);
+    res.json({ table: normalizedTable.table.slice(0, parsed.data.limit ?? 100) });
   } catch (error) {
     next(error);
   }

@@ -22,6 +22,31 @@ function normalizeSearchValue(value: string | null) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function normalizeRangeBounds(fromParam: string, toParam: string): ParsedSuccess<RangeParams> | ParsedFailure {
+  const fromMs = new Date(fromParam).getTime();
+  const toMs = new Date(toParam).getTime();
+
+  if (Number.isNaN(fromMs) || Number.isNaN(toMs)) {
+    return { ok: false, message: 'Parametros invalidos: from/to deben ser fechas validas.' };
+  }
+
+  const cappedToMs = Math.min(toMs, Date.now());
+  if (cappedToMs <= fromMs) {
+    return {
+      ok: false,
+      message: 'Parametros invalidos: from debe ser menor que to y no puede quedar en el futuro.',
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      from: new Date(fromMs).toISOString(),
+      to: new Date(cappedToMs).toISOString(),
+    },
+  };
+}
+
 export function defaultRange() {
   const to = new Date();
   const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
@@ -50,11 +75,16 @@ export function parseRangeQuery(request: NextRequest): ParsedSuccess<RangeParams
       return { ok: false, message: 'Parametros invalidos: from/to deben ser fechas validas.' };
     }
 
+    const normalizedRange = normalizeRangeBounds(fromParam, toParam);
+    if (!normalizedRange.ok) {
+      return normalizedRange;
+    }
+
     return {
       ok: true,
       data: {
-        from: new Date(fromParam).toISOString(),
-        to: new Date(toParam).toISOString(),
+        from: normalizedRange.data.from,
+        to: normalizedRange.data.to,
         limit,
       },
     };
